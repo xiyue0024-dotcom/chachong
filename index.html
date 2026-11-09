@@ -252,7 +252,7 @@ function api(action, params){
     sc.src = API + '?' + q.join('&');
     sc.onerror = function(){
       if (done) return; done = true; cleanup();
-      reject(new Error('网络错误，接口没响应'));
+      reject(new Error('接口没响应。如果是公司电脑，可能是广告拦截器或安全软件拦了 script.google.com，试试无痕窗口打开'));
     };
     document.head.appendChild(sc);
   });
@@ -318,7 +318,7 @@ function renderKanal(list){
     }
   }).catch(function(e){
     $('whoDot').classList.add('off');
-    $('whoText').textContent = '接口连不上：' + e.message;
+    $('whoText').textContent = '接口连不上 · ' + e.message;
   });
 })();
 
