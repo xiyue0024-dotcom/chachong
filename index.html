@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>GARUDA 客户登记 · GitHub 版</title>
+<style>
+  :root{
+    --ink:#1F2937; --ink2:#4B5563; --mut:#9CA3AF; --line:#E5E7EB;
+    --gold:#B08D3F; --gold2:#D9B45B;
+    --ok:#1F8669; --bad:#C13B3B; --warn:#C77D1F; --info:#2563EB; --blk:#111827;
+    --bg:#F6F7F9; --card:#FFFFFF;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;
+    font-size:15px;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding-bottom:44px}
+
+  header{background:var(--ink);color:#fff;padding:16px 28px 14px}
+  .brand{display:flex;align-items:center;gap:9px}
+  .brand b{font-size:16px;letter-spacing:.06em;font-weight:600}
+  .brand span{font-size:11px;color:var(--gold2);letter-spacing:.12em}
+  .who{margin-top:7px;font-size:12px;color:#D1D5DB;display:flex;align-items:center;gap:6px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block}
+  .dot.off{background:var(--bad)}
+
+  nav{display:flex;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;padding:0 28px}
+  nav button{border:0;background:none;padding:14px 22px;font-size:14px;color:var(--ink2);
+    font-family:inherit;cursor:pointer;border-bottom:2px solid transparent}
+  nav button.on{color:var(--ink);font-weight:600;border-bottom-color:var(--gold)}
+
+  section{display:none;padding:22px 28px}
+  section.on{display:block}
+
+  /* 桌面：左表单 + 右结果 */
+  .reg-grid{display:grid;grid-template-columns:400px minmax(0,1fr);gap:18px;align-items:start}
+  .reg-form{position:sticky;top:58px}
+  #results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-content:start}
+  #results .panel{grid-column:1/-1}
+  #results .loading{grid-column:1/-1}
+
+  /* 桌面：看板两列 */
+  #dash{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  #dash .wide{grid-column:1/-1}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:15px;margin-bottom:13px}
+  .lbl{font-size:12px;color:var(--ink2);margin-bottom:7px;font-weight:600;letter-spacing:.02em}
+
+  textarea{width:100%;border:1px solid var(--line);border-radius:6px;padding:12px;
+    font-size:16px;font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink);
+    resize:vertical;min-height:92px;outline:none;background:#FCFCFD}
+  textarea:focus{border-color:var(--gold);background:#fff}
+  input[type=text]{width:100%;border:1px solid var(--line);border-radius:6px;padding:11px 12px;
+    font-size:15px;font-family:inherit;outline:none;color:var(--ink)}
+  input[type=text]:focus{border-color:var(--gold)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 13px;
+    font-size:13px;color:var(--ink2);cursor:pointer;font-family:inherit}
+  .chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+
+  .btn{width:100%;border:0;border-radius:7px;padding:14px;font-size:16px;font-weight:600;
+    background:var(--ink);color:#fff;font-family:inherit;cursor:pointer;margin-top:13px}
+  .btn:disabled{opacity:.5}
+  .btn.gold{background:var(--gold)}
+  .btn.ghost{background:#fff;color:var(--ink2);border:1px solid var(--line);font-weight:500;font-size:14px;padding:11px}
+
+  /* 结果卡片 */
+  .res{border:1px solid var(--line);border-left:4px solid var(--mut);border-radius:7px;
+    padding:12px 13px;margin-bottom:10px;background:#fff;overflow:hidden}
+  .res.hijau{border-left-color:var(--ok);background:#F3FAF7}
+  .res.merah{border-left-color:var(--bad);background:#FDF4F4}
+  .res.oranye{border-left-color:var(--warn);background:#FDF8F0}
+  .res.biru{border-left-color:var(--info);background:#F3F7FE}
+  .res.hitam{border-left-color:var(--blk);background:#F4F4F5}
+
+  .res-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;min-width:0}
+  .num{flex:1 1 0%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;font-weight:600;letter-spacing:.01em}
+  .tag{flex:0 0 auto;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:600;white-space:nowrap}
+  .tag.hijau{background:#E3F3EC;color:#146B52}
+  .tag.merah{background:#F8E3E3;color:#A32B2B}
+  .tag.oranye{background:#FAEEDC;color:#9A5F14}
+  .tag.biru{background:#E3ECFC;color:#1D4ED8}
+  .tag.hitam{background:#E5E7EB;color:#111827}
+
+  .kv{display:flex;font-size:13px;padding:3px 0;color:var(--ink2)}
+  .kv b{color:var(--ink);font-weight:600}
+  .kv .k{width:76px;flex:none;color:var(--mut)}
+  .kv .v{flex:1;word-break:break-all}
+
+  .alert{margin-top:9px;padding:9px 11px;border-radius:6px;font-size:13px;line-height:1.55}
+  .alert.bad{background:#FBEAEA;color:#8F2626;border:1px solid #F0CFCF}
+  .alert.warn{background:#FCF3E3;color:#8A5710;border:1px solid #F0DFC0}
+  .alert.ok{background:#E9F6EF;color:#146B52;border:1px solid #CDE9DB}
+
+  /* 看板 */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:0}
+  #dash .kpis{grid-column:1/-1}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:13px 14px}
+  .kpi .n{font-size:24px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+  .kpi .t{font-size:11px;color:var(--mut);margin-top:3px}
+  .kpi .n.bad{color:var(--bad)}
+  .kpi .n.ok{color:var(--ok)}
+
+  .bars{margin-top:4px}
+  .bar{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
+  .bar .n{width:68px;flex:none;color:var(--ink2);text-align:right;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar .t{flex:1;height:16px;background:#F1F2F4;border-radius:3px;overflow:hidden;min-width:0}
+  .bar .f{display:block;height:100%;background:var(--gold);border-radius:3px}
+  .bar .v{width:42px;flex:none;color:var(--ink);font-weight:600;text-align:right}
+
+  .trend{display:flex;align-items:flex-end;justify-content:center;gap:10px;height:112px;margin-top:8px}
+  .trend .col{flex:1;max-width:44px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+  .trend .b{width:100%;background:var(--gold2);border-radius:3px 3px 0 0;min-height:2px}
+  .trend .d{font-size:9px;color:var(--mut);margin-top:5px;white-space:nowrap}
+
+  /* 按组对照表 */
+  .gt{width:100%;border-collapse:collapse;font-size:13px}
+  .gt th{text-align:left;color:var(--mut);font-weight:600;font-size:11px;padding:7px 8px;
+    border-bottom:1px solid var(--line);white-space:nowrap}
+  .gt td{padding:8px;border-bottom:1px solid #F1F2F4}
+  .gt td.r,.gt th.r{text-align:right;font-variant-numeric:tabular-nums}
+  .gt tr:last-child td{border-bottom:0}
+  .gt .g{font-weight:600;color:var(--ink)}
+  .gt .warn{color:var(--bad);font-weight:600}
+
+  .list{font-size:13px}
+  .li{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid #F1F2F4}
+  .li:last-child{border-bottom:0}
+  .li .m{color:var(--mut);font-size:11px}
+  .empty{text-align:center;color:var(--mut);font-size:13px;padding:26px 0}
+
+  .hint{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.6}
+  .loading{text-align:center;padding:20px;color:var(--mut);font-size:13px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);
+    color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99}
+  .toast.on{opacity:1}
+
+  /* 窄屏回退：手机打开也能用 */
+  @media (max-width:920px){
+    .wrap{padding-bottom:32px}
+    header{padding:14px 16px 12px}
+    nav{padding:0 12px}
+    nav button{flex:1;padding:13px 0}
+    section{padding:16px 14px}
+    .reg-grid{grid-template-columns:1fr}
+    .reg-form{position:static}
+    #results{grid-template-columns:1fr}
+    #dash{grid-template-columns:1fr}
+    .kpis{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <b>GARUDA QUANTUM 4D</b><span>KLIEN</span>
+    </div>
+    <div class="who">
+      <span class="dot" id="whoDot"></span>
+      <span id="whoText">正在识别身份…</span>
+    </div>
+  </header>
+
+  <nav>
+    <button class="on" id="tabBtn1" onclick="tab(1)">客户登记</button>
+    <button id="tabBtn2" onclick="tab(2)">数据看板</button>
+  </nav>
+
+  <!-- ============ 登记 ============ -->
+  <section class="on" id="sec1">
+    <div class="reg-grid">
+    <div class="panel reg-form">
+      <div class="lbl">客户号码（一行一个，可一次粘多个）</div>
+      <textarea id="nums" placeholder="6281234567890&#10;6289876543210" autocomplete="off"></textarea>
+      <div class="hint">支持 62 858-1389-7645 这种带空格横线的写法，系统会自动规范化。</div>
+
+      <div class="lbl" style="margin-top:15px">渠道</div>
+      <div class="chips" id="chips">
+        <button class="chip on" data-k="" onclick="pick(this)">不填</button>
+      </div>
+
+      <button class="btn" id="btnReg" onclick="doRegister()">登记</button>
+      <button class="btn ghost" onclick="doLookupOnly()">只查不登记</button>
+    </div>
+
+    <div id="results"></div>
+    </div>
+  </section>
+
+  <!-- ============ 看板 ============ -->
+  <section id="sec2">
+    <div id="dash"><div class="loading">加载中…</div></div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   GitHub Pages 版前端
+   数据通过 JSONP 调用 Apps Script 接口，不需要登录 Google
+   ============================================================ */
+
+var API = 'https://script.google.com/macros/s/AKfycbzwIc-U7Uris9x68e3wTIMlERMjdyLh9S7lwdTw-azwqrnnfQuTmqawMBcMFMXbUbVK/exec';
+
+var TOKEN = (new URLSearchParams(location.search)).get('t') || '';
+var ME = '';
+var SIGNED = TOKEN ? '1' : '';
+var KANAL = '';
+
+function $(id){ return document.getElementById(id); }
+
+/* ---------- JSONP ---------- */
+function api(action, params){
+  return new Promise(function(resolve, reject){
+    var cb = 'jscb_' + Math.random().toString(36).slice(2);
+    var sc = document.createElement('script');
+    var done = false;
+
+    var timer = setTimeout(function(){
+      if (done) return; done = true; cleanup();
+      reject(new Error('请求超时，检查网络'));
+    }, 25000);
+
+    function cleanup(){
+      clearTimeout(timer);
+      try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+      if (sc.parentNode) sc.parentNode.removeChild(sc);
+    }
+
+    window[cb] = function(data){
+      if (done) return; done = true; cleanup();
+      resolve(data);
+    };
+
+    var q = ['api=' + encodeURIComponent(action),
+             't=' + encodeURIComponent(TOKEN),
+             'cb=' + cb];
+    Object.keys(params || {}).forEach(function(k){
+      var v = params[k];
+      if (v === undefined || v === null) return;
+      q.push(k + '=' + encodeURIComponent(v));
+    });
+
+    sc.src = API + '?' + q.join('&');
+    sc.onerror = function(){
+      if (done) return; done = true; cleanup();
+      reject(new Error('网络错误，接口没响应'));
+    };
+    document.head.appendChild(sc);
+  });
+}
+
+function toast(msg){
+  var t = $('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(function(){ t.classList.remove('on'); }, 1900);
+}
+
+function tab(n){
+  $('sec1').classList.toggle('on', n === 1);
+  $('sec2').classList.toggle('on', n === 2);
+  $('tabBtn1').classList.toggle('on', n === 1);
+  $('tabBtn2').classList.toggle('on', n === 2);
+  if (n === 2) loadDash();
+}
+
+function pick(el){
+  var all = $('chips').querySelectorAll('.chip');
+  for (var i = 0; i < all.length; i++) all[i].classList.remove('on');
+  el.classList.add('on');
+  KANAL = el.getAttribute('data-k') || '';
+}
+
+/* ---------- 渠道 ---------- */
+var KANAL_FALLBACK = ['tk', 'z', 's8', 'B6', 'S99'];
+
+function renderKanal(list){
+  var box = $('chips');
+  if (!box) return;
+  var arr = (list && list.length) ? list : KANAL_FALLBACK;
+  var h = '<button class="chip' + (KANAL ? '' : ' on') + '" data-k="" onclick="pick(this)">不填</button>';
+  arr.forEach(function(k){
+    var v = String(k || '').trim();
+    if (!v) return;
+    h += '<button class="chip' + (KANAL === v ? ' on' : '') + '" data-k="' + v + '" onclick="pick(this)">' + v + '</button>';
+  });
+  box.innerHTML = h;
+}
+
+/* ---------- 身份 ---------- */
+(function initWho(){
+  renderKanal(KANAL_FALLBACK);
+
+  if (!SIGNED) {
+    $('whoDot').classList.add('off');
+    $('whoText').textContent = '未识别身份 · 链接里缺少 ?t= 参数';
+    return;
+  }
+
+  api('whoami').then(function(r){
+    if (r && r.kanal) renderKanal(r.kanal);
+    if (r && r.ok) {
+      $('whoText').innerHTML = '@' + r.username +
+        (r.groups && r.groups.length ? ' · 管理 Group ' + r.groups.join(', ') : ' · 未匹配到组');
+      ME = r.username;
+    } else {
+      $('whoDot').classList.add('off');
+      $('whoText').textContent = '链接已失效，请找管理员重新要链接';
+    }
+  }).catch(function(e){
+    $('whoDot').classList.add('off');
+    $('whoText').textContent = '接口连不上：' + e.message;
+  });
+})();
+
+/* ---------- 结果卡 ---------- */
+function card(r, raw){
+  var nomor = (r.info && r.info.nomor) || r.nomor || raw || '';
+  var k = r.kelas || { warna:'', label:'未知', ikon:'•' };
+  var i = r.info || {};
+
+  var h = '<div class="res ' + (k.warna || '') + '">';
+  h += '<div class="res-h"><span class="num">' + nomor + '</span>';
+  h += '<span class="tag ' + (k.warna || '') + '">' + k.ikon + ' ' + k.label + '</span></div>';
+
+  if (i.pendaftar) {
+    h += kv('登记人', '@' + i.pendaftar + '  <span style="color:#9CA3AF">' + (i.waktuDaftar || '') + '</span>');
+    if (i.kanal) h += kv('渠道', i.kanal);
+  } else if (r.ok) {
+    h += kv('登记', '无（你是第一个）');
+  }
+
+  if (i.grupPertama) {
+    h += kv('首次签到', 'Group ' + i.grupPertama + '  <span style="color:#9CA3AF">' + (i.waktuCheckinPertama || '') + '</span>');
+    h += kv('归属组', 'Group ' + i.grupPemilik + ' ' + (i.adminPemilik || ''));
+    h += kv('累计签到', i.totalCheckin + ' 次');
+    if (i.groups && i.groups.length > 1) {
+      h += kv('出现组', i.groups.map(function(x){ return 'G' + x.g + '(' + x.count + ')'; }).join(', '));
+    }
+  } else if (r.ok) {
+    h += kv('签到', '暂无记录');
+  }
+
+  if (i.dihapus) {
+    h += kv('数据状态', '<span style="color:#C77D1F">签到记录已删除，号码仍保留在库</span>');
+  }
+
+  if (i.hitam) {
+    h += kv('名单', '🚫 ' + (i.hitam.status || '') + '（' + (i.hitam.tipe === 'black' ? '黑名单' : '观察') + '）');
+    if (i.terkait && i.terkait.length) {
+      h += kv('关联号码', i.terkait.map(function(x){ return '+' + x; }).join(', '));
+    }
+  }
+
+  if (k.kode === 'hitam') {
+    h += '<div class="alert bad">这是黑名单号码，不要录入。' +
+         (i.terkait && i.terkait.length ? '关联号码也在上面，注意排查。' : '') + '</div>';
+  } else if (k.kode === 'multi') {
+    h += '<div class="alert bad">这个号码在 ' + (i.groups ? i.groups.length : 2) +
+         ' 个组出现过（' + (i.groups || []).map(function(x){ return 'G' + x.g; }).join('、') +
+         '），是跨组重复号，先确认归属再用。</div>';
+  } else if (k.kode === 'dup') {
+    h += '<div class="alert bad">这个号码已被 @' + (i.pendaftar || '?') + ' 于 ' + (i.waktuDaftar || '') +
+         ' 登记，归属 Group ' + (i.grupPemilik || '?') + '。本次不会改动归属，只记入重复日志。</div>';
+  } else if (k.kode === 'lain') {
+    h += '<div class="alert warn">这个号码首次签到在 Group ' + (i.grupPertama || '?') +
+         '（' + (i.adminPemilik || '') + '），不在你的组。建议先跟对方确认，避免撞客。</div>';
+  } else if (k.kode === 'sendiri') {
+    h += '<div class="alert ok">这个号是你自己这边的，归属不变。</div>';
+  } else if (!r.dup && r.ok) {
+    h += '<div class="alert ok">登记成功。' +
+         (i.grupPertama ? '' : '该号码还没签到，先记为待确认，首次签到后自动归组。') + '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+function kv(k, v){
+  return '<div class="kv"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>';
+}
+
+function fail(msg){
+  $('results').innerHTML = '<div class="res"><div class="alert bad">' + msg + '</div></div>';
+}
+
+/* ---------- 只查 ---------- */
+function doLookupOnly(){
+  var list = $('nums').value.split(/[\s,;、\n\r]+/).filter(Boolean);
+  if (!list.length) { toast('请先输入号码'); return; }
+  if (list.length > 20) { toast('一次最多查 20 个'); return; }
+
+  $('results').innerHTML = '<div class="loading">查询中…</div>';
+
+  api('lookup', { nomor: list.join(',') }).then(function(r){
+    if (!r || !r.ok) { fail((r && r.pesan) || '查询失败'); return; }
+
+    $('results').innerHTML = r.hasil.map(function(x){
+      if (!x.ok) {
+        return '<div class="res"><div class="res-h"><span class="num">' + (x.nomor || '') + '</span>' +
+          '<span class="tag">无效</span></div><div class="alert bad">' + (x.pesan || '') + '</div></div>';
+      }
+      return card(x, x.nomor);
+    }).join('');
+  }).catch(function(e){ fail('查询失败：' + e.message); });
+}
+
+/* ---------- 登记 ---------- */
+function doRegister(){
+  var val = $('nums').value.trim();
+  if (!val) { toast('请先输入号码'); return; }
+  if (!SIGNED) { toast('链接缺少 ?t= 参数'); return; }
+
+  var btn = $('btnReg');
+  btn.disabled = true;
+  $('results').innerHTML = '<div class="loading">提交中…</div>';
+
+  api('register', { nomor: val, kanal: KANAL }).then(function(r){
+    btn.disabled = false;
+    if (!r || !r.ok) { fail((r && r.pesan) || '提交失败'); return; }
+
+    var html = '';
+    if (r.baru || r.dup) {
+      html += '<div class="panel" style="padding:11px 13px;font-size:13px">' +
+        '本次提交 <b>' + r.total + '</b> 个 · 新增 <b style="color:#1F8669">' + r.baru + '</b>' +
+        ' · 重复 <b style="color:#C13B3B">' + r.dup + '</b>' +
+        (r.gagal ? ' · 无效 <b>' + r.gagal + '</b>' : '') + '</div>';
+    }
+    html += r.hasil.map(function(x){
+      if (!x.ok) {
+        return '<div class="res"><div class="res-h"><span class="num">' + x.nomor + '</span>' +
+          '<span class="tag">无效</span></div><div class="alert bad">' + x.pesan + '</div></div>';
+      }
+      return card(x, x.nomor);
+    }).join('');
+    $('results').innerHTML = html;
+    $('nums').value = '';
+    toast('完成');
+  }).catch(function(e){
+    btn.disabled = false;
+    fail('提交失败：' + e.message);
+  });
+}
+
+/* ---------- 看板 ---------- */
+function loadDash(){
+  $('dash').innerHTML = '<div class="loading">加载中…</div>';
+
+  api('stats').then(function(d){
+    renderDash(d);
+  }).catch(function(e){
+    $('dash').innerHTML = '<div class="panel"><div class="alert bad">' + e.message + '</div></div>';
+  });
+}
+
+function renderDash(d){
+  if (!d || !d.ok) { $('dash').innerHTML = '<div class="panel">没有数据</div>'; return; }
+
+  var h = '';
+  h += '<div class="kpis">';
+  h += kpi(d.total, '客户总数', '');
+  h += kpi(d.hariIni, '今日新增', 'ok');
+  h += kpi(d.mingguIni, '近 7 天新增', '');
+  h += kpi(d.duplikat, '重复登记次数', 'bad');
+  h += '</div>';
+
+  // 按组对照
+  if (d.grupDetail && d.grupDetail.length) {
+    h += '<div class="panel wide"><div class="lbl">按组对照（G1–G14）</div>';
+    h += '<table class="gt"><thead><tr>' +
+         '<th>组</th><th>管理员</th><th class="r">登记</th>' +
+         '<th class="r">签到号码</th><th class="r">签到次数</th><th class="r">撞客</th>' +
+         '</tr></thead><tbody>';
+    d.grupDetail.forEach(function(x){
+      h += '<tr><td class="g">G' + x.grup + '</td><td>' + (x.admin || '') + '</td>' +
+        '<td class="r">' + (x.daftar || 0) + '</td>' +
+        '<td class="r">' + (x.cekinNomor || 0) + '</td>' +
+        '<td class="r">' + (x.cekinTotal || 0) + '</td>' +
+        '<td class="r' + (x.dup ? ' warn' : '') + '">' + (x.dup || '') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    h += '<div class="hint" style="margin-top:10px">登记 = 台账里归属该组的号码数；签到号码 = 在该组签到过的不同号码；撞客 = 该组管理员重复登记别人的号。</div>';
+    h += '</div>';
+  }
+
+  h += '<div class="panel wide"><div class="lbl">重复率 ' + d.rasioDuplikat + '% · 今日重复 ' + d.duplikatHariIni + ' 次</div>';
+  h += '<div class="hint" style="margin-top:0">重复率 = 重复登记次数 ÷ (客户数 + 重复次数)。数值越高，说明撞客越频繁。</div></div>';
+
+  h += '<div class="panel wide"><div class="lbl">最近 14 天新增</div>';
+  var maxT = 1;
+  d.trend.forEach(function(x){ if (x.jumlah > maxT) maxT = x.jumlah; });
+  h += '<div class="trend">';
+  d.trend.forEach(function(x, i){
+    var hp = Math.round(x.jumlah / maxT * 100);
+    var lb = (i % 2 === 0) ? x.hari : '';
+    h += '<div class="col"><div class="b" style="height:' + Math.max(hp, 2) + '%" title="' + x.hari + '：' + x.jumlah + '"></div>' +
+         '<div class="d">' + lb + '</div></div>';
+  });
+  h += '</div></div>';
+
+  h += barsPanel('按组分布', d.byGrup);
+  h += barsPanel('按渠道分布', d.byKanal);
+  h += barsPanel('按登记人分布', d.byAdmin);
+
+  h += '<div class="panel"><div class="lbl">重复登记排行（谁在撞客）</div>';
+  if (!d.dupByAdmin.length) h += '<div class="empty">暂无重复记录</div>';
+  else {
+    h += '<div class="bars">';
+    var maxD = d.dupByAdmin[0].value || 1;
+    d.dupByAdmin.slice(0, 8).forEach(function(x){
+      h += '<div class="bar"><span class="n" style="width:96px">' + x.label + '</span>' +
+        '<span class="t"><span class="f" style="width:' + Math.round(x.value / maxD * 100) + '%;background:#C13B3B"></span></span>' +
+        '<span class="v">' + x.value + '</span></div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="panel wide"><div class="lbl">最近登记</div><div id="recent"><div class="loading">加载中…</div></div></div>';
+
+  $('dash').innerHTML = h;
+
+  api('recent', { limit: 30 }).then(function(r){
+    var el = $('recent');
+    if (!el) return;
+    if (!r || !r.rows || !r.rows.length) { el.innerHTML = '<div class="empty">还没有登记记录</div>'; return; }
+    el.innerHTML = '<div class="list">' + r.rows.slice(0, 30).map(function(x){
+      return '<div class="li"><div><div class="num" style="font-size:13px">' + x.nomor + '</div>' +
+        '<div class="m">' + (x.admin || '') + (x.kanal ? ' · ' + x.kanal : '') +
+        (x.grupPertama ? ' · G' + x.grupPertama : '') + '</div></div>' +
+        '<div class="m" style="text-align:right;white-space:nowrap">' + (x.waktu || '').slice(5, 16) + '</div></div>';
+    }).join('') + '</div>';
+  }).catch(function(){
+    var el = $('recent');
+    if (el) el.innerHTML = '<div class="empty">最近登记加载失败</div>';
+  });
+}
+
+function kpi(n, t, cls){
+  return '<div class="kpi"><div class="n ' + (cls || '') + '">' + n + '</div><div class="t">' + t + '</div></div>';
+}
+
+function barsPanel(title, arr){
+  var h = '<div class="panel"><div class="lbl">' + title + '</div>';
+  if (!arr || !arr.length) return h + '<div class="empty">暂无数据</div></div>';
+  var max = arr[0].value || 1;
+  h += '<div class="bars">';
+  arr.slice(0, 10).forEach(function(x){
+    h += '<div class="bar"><span class="n">' + x.label + '</span>' +
+      '<span class="t"><span class="f" style="width:' + Math.round(x.value / max * 100) + '%"></span></span>' +
+      '<span class="v">' + x.value + '</span></div>';
+  });
+  h += '</div></div>';
+  return h;
+}
+
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) doRegister();
+});
+</script>
+</body>
+</html>
