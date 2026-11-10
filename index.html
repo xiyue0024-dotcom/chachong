@@ -217,6 +217,50 @@ var KANAL = '';
 
 function $(id){ return document.getElementById(id); }
 
+/* ---------- 号码解析：一行一个，但容忍 62 822-2187-6405 这种带空格前缀 ---------- */
+function parseNums(text){
+  var lines = String(text || '').split(/[\n\r,;、]+/);
+  var out = [];
+
+  lines.forEach(function(line){
+    line = line.replace(/\s+/g, ' ').trim();
+    if (!line) return;
+
+    var parts = line.split(' ');
+    var buf = [];
+
+    parts.forEach(function(p){
+      if (!p) return;
+      var d = p.replace(/\D/g, '');
+
+      // 这段自己是不是一个完整号码
+      var isStart = /^(\+?62|0)?8\d{7,}$/.test(d);
+      // 这段是不是只有国家码前缀（62 / +62 / 0）
+      var isPrefix = /^(\+?62|0)$/.test(d);
+
+      var head = buf.join('').replace(/\D/g, '');
+      var headComplete = /^(\+?62|0)?8\d{7,}$/.test(head);
+      var prefixOnly = /^(\+?62|0)?$/.test(head);
+
+      if (buf.length && headComplete && (isStart || isPrefix)) {
+        // 已攒的是完整号码，当前段是新号码的开头 → 断开
+        out.push(buf.join(''));
+        buf = [p];
+      } else if (isStart && buf.length && !prefixOnly) {
+        out.push(buf.join(''));
+        buf = [p];
+      } else {
+        buf.push(p);
+      }
+    });
+
+    if (buf.length) out.push(buf.join(''));
+  });
+
+  return out;
+}
+
+
 /* ---------- JSONP ---------- */
 function api(action, params){
   return new Promise(function(resolve, reject){
@@ -281,7 +325,7 @@ function pick(el){
 }
 
 /* ---------- 渠道 ---------- */
-var KANAL_FALLBACK = ['tk', 'z', 's8', 'B6', 'S99'];
+var KANAL_FALLBACK = ['Z', 'S8', 'TKB6', 'B57', 'S99', 'Q'];
 
 function renderKanal(list){
   var box = $('chips');
@@ -395,7 +439,7 @@ function fail(msg){
 
 /* ---------- 只查 ---------- */
 function doLookupOnly(){
-  var list = $('nums').value.split(/[\s,;、\n\r]+/).filter(Boolean);
+  var list = parseNums($('nums').value);
   if (!list.length) { toast('请先输入号码'); return; }
   if (list.length > 20) { toast('一次最多查 20 个'); return; }
 
@@ -416,15 +460,15 @@ function doLookupOnly(){
 
 /* ---------- 登记 ---------- */
 function doRegister(){
-  var val = $('nums').value.trim();
-  if (!val) { toast('请先输入号码'); return; }
+  var list = parseNums($('nums').value);
+  if (!list.length) { toast('请先输入号码'); return; }
   if (!SIGNED) { toast('链接缺少 ?t= 参数'); return; }
 
   var btn = $('btnReg');
   btn.disabled = true;
   $('results').innerHTML = '<div class="loading">提交中…</div>';
 
-  api('register', { nomor: val, kanal: KANAL }).then(function(r){
+  api('register', { nomor: list.join(','), kanal: KANAL }).then(function(r){
     btn.disabled = false;
     if (!r || !r.ok) { fail((r && r.pesan) || '提交失败'); return; }
 
