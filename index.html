@@ -208,6 +208,9 @@
    数据通过 JSONP 调用 Apps Script 接口，不需要登录 Google
    ============================================================ */
 
+/* ⚠️ 这一行必须和线上一致：指向 Apps Script 的 /exec。
+   曾经改成 Cloudflare Worker（klien-api.xiyue0024.workers.dev），但 workers.dev 被整域
+   DNS 污染，国内打不开，已弃用。改回 Worker 会让所有管理员立刻用不了。 */
 var API = 'https://script.google.com/macros/s/AKfycbzwIc-U7Uris9x68e3wTIMlERMjdyLh9S7lwdTw-azwqrnnfQuTmqawMBcMFMXbUbVK/exec';
 
 var TOKEN = (new URLSearchParams(location.search)).get('t') || '';
@@ -441,7 +444,7 @@ function fail(msg){
 function doLookupOnly(){
   var list = parseNums($('nums').value);
   if (!list.length) { toast('请先输入号码'); return; }
-  if (list.length > 20) { toast('一次最多查 20 个'); return; }
+  if (list.length > 50) { toast('一次最多查 50 个'); return; }
 
   $('results').innerHTML = '<div class="loading">查询中…</div>';
 
