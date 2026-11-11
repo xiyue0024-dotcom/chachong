@@ -84,6 +84,14 @@
   .tag.oranye{background:#FAEEDC;color:#9A5F14}
   .tag.biru{background:#E3ECFC;color:#1D4ED8}
   .tag.hitam{background:#E5E7EB;color:#111827}
+  .tag.rekan{background:#FAEEDA;color:#854F0B}
+  .res-tags{display:flex;gap:6px;align-items:center;flex:0 0 auto}
+  .rekan-chk{display:flex;align-items:center;gap:7px;margin-top:14px;font-size:13px;color:var(--ink2);cursor:pointer}
+  .rekan-chk input{width:15px;height:15px;cursor:pointer}
+  .mini{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;color:var(--ink2)}
+  .mini:hover{background:#F6F7F9}
+  .mini.danger{color:#A32B2B;border-color:#F0CFCF}
+  .rekan-ops{margin-top:9px;text-align:right}
 
   .kv{display:flex;font-size:13px;padding:3px 0;color:var(--ink2)}
   .kv b{color:var(--ink);font-weight:600}
@@ -170,6 +178,7 @@
   <nav>
     <button class="on" id="tabBtn1" onclick="tab(1)">客户登记</button>
     <button id="tabBtn2" onclick="tab(2)">数据看板</button>
+    <button id="tabBtn3" onclick="tab(3)">同行名单</button>
   </nav>
 
   <!-- ============ 登记 ============ -->
@@ -185,6 +194,8 @@
         <button class="chip on" data-k="" onclick="pick(this)">不填</button>
       </div>
 
+      <label class="rekan-chk"><input type="checkbox" id="rekanChk"> 这些号码标记为「同行」</label>
+
       <button class="btn" id="btnReg" onclick="doRegister()">登记</button>
       <button class="btn ghost" onclick="doLookupOnly()">只查不登记</button>
     </div>
@@ -196,6 +207,11 @@
   <!-- ============ 看板 ============ -->
   <section id="sec2">
     <div id="dash"><div class="loading">加载中…</div></div>
+  </section>
+
+  <!-- ============ 同行名单 ============ -->
+  <section id="sec3">
+    <div id="rekanList"><div class="loading">加载中…</div></div>
   </section>
 
 </div>
@@ -315,9 +331,12 @@ function toast(msg){
 function tab(n){
   $('sec1').classList.toggle('on', n === 1);
   $('sec2').classList.toggle('on', n === 2);
+  $('sec3').classList.toggle('on', n === 3);
   $('tabBtn1').classList.toggle('on', n === 1);
   $('tabBtn2').classList.toggle('on', n === 2);
+  $('tabBtn3').classList.toggle('on', n === 3);
   if (n === 2) loadDash();
+  if (n === 3) loadRekanList();
 }
 
 function pick(el){
@@ -377,7 +396,9 @@ function card(r, raw){
 
   var h = '<div class="res ' + (k.warna || '') + '">';
   h += '<div class="res-h"><span class="num">' + nomor + '</span>';
-  h += '<span class="tag ' + (k.warna || '') + '">' + k.ikon + ' ' + k.label + '</span></div>';
+  h += '<span class="res-tags">' +
+       (i.rekan ? '<span class="tag rekan">同行</span>' : '') +
+       '<span class="tag ' + (k.warna || '') + '">' + k.ikon + ' ' + k.label + '</span></span></div>';
 
   if (i.pendaftar) {
     h += kv('登记人', '@' + i.pendaftar + '  <span style="color:#9CA3AF">' + (i.waktuDaftar || '') + '</span>');
@@ -408,6 +429,12 @@ function card(r, raw){
     }
   }
 
+  if (i.rekan) {
+    h += kv('同行标记', '@' + esc(i.rekan.oleh) +
+      (i.rekan.waktu ? ' · ' + esc(i.rekan.waktu) : '') +
+      (i.rekan.catatan ? ' · ' + esc(i.rekan.catatan) : ''));
+  }
+
   if (k.kode === 'hitam') {
     h += '<div class="alert bad">这是黑名单号码，不要录入。' +
          (i.terkait && i.terkait.length ? '关联号码也在上面，注意排查。' : '') + '</div>';
@@ -428,6 +455,14 @@ function card(r, raw){
          (i.grupPertama ? '' : '该号码还没签到，先记为待确认，首次签到后自动归组。') + '</div>';
   }
 
+  h += '<div class="rekan-ops">' +
+    (i.rekan
+      ? (ME && i.rekan.oleh && String(ME).toLowerCase() === String(i.rekan.oleh).toLowerCase()
+          ? '<button class="mini danger" onclick="rekanToggle(\'' + nomor + '\',0)">取消同行</button>'
+          : '<span style="color:#9CA3AF;font-size:11px">@' + esc(i.rekan.oleh) + ' 标记，仅本人可取消</span>')
+      : '<button class="mini" onclick="rekanToggle(\'' + nomor + '\',1)">标记同行</button>') +
+    '</div>';
+
   h += '</div>';
   return h;
 }
@@ -438,6 +473,85 @@ function kv(k, v){
 
 function fail(msg){
   $('results').innerHTML = '<div class="res"><div class="alert bad">' + msg + '</div></div>';
+}
+
+/* ---------- 同行标记（v1.2.0） ---------- */
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function callRekan(params, done){
+  api('rekan', params).then(function(r){ done(r); })
+    .catch(function(e){ done({ ok:false, pesan:e.message }); });
+}
+function callRekanList(done){
+  api('rekanlist', {}).then(function(r){ done(r); })
+    .catch(function(e){ done({ ok:false, pesan:e.message }); });
+}
+
+function afterRekan(r){
+  toast((r && r.pesan) || (r && r.ok ? '已更新' : '操作失败'));
+  if (!r || !r.ok) return;
+  if ($('sec3').classList.contains('on')) { loadRekanList(); return; }
+  if ($('nums').value.trim()) doLookupOnly();
+}
+
+function rekanToggle(nomor, on){
+  if (!SIGNED) { toast('链接缺少 ?t= 参数'); return; }
+  callRekan({ nomor: nomor, on: on, catatan: '' }, afterRekan);
+}
+
+function rekanEdit(nomor){
+  var box = document.getElementById('rekan_edit_' + nomor);
+  if (!box) return;
+  var opening = box.style.display !== 'block';
+  box.style.display = opening ? 'block' : 'none';
+  if (opening) { var inp = document.getElementById('rekan_note_' + nomor); if (inp) inp.focus(); }
+}
+
+function rekanSave(nomor){
+  if (!SIGNED) { toast('链接缺少 ?t= 参数'); return; }
+  var inp = document.getElementById('rekan_note_' + nomor);
+  if (!inp) return;
+  callRekan({ nomor: nomor, on: '1', catatan: inp.value }, afterRekan);
+}
+
+function loadRekanList(){
+  var box = $('rekanList');
+  if (!box) return;
+  box.innerHTML = '<div class="loading">加载中…</div>';
+  callRekanList(function(r){
+    if (!r || !r.ok) {
+      box.innerHTML = '<div class="panel"><div class="alert bad">' + esc((r && r.pesan) || '加载失败') + '</div></div>';
+      return;
+    }
+    var rows = r.rows || [];
+    if (!rows.length) {
+      box.innerHTML = '<div class="panel"><div class="empty">还没有同行标记</div></div>';
+      return;
+    }
+    var h = '<div class="panel"><div class="lbl">同行名单 · 共 ' + rows.length + ' 个号码</div><div class="list">';
+    rows.forEach(function(x){
+      var mine = r.me && String(r.me).toLowerCase() === String(x.oleh || '').toLowerCase();
+      h += '<div class="li"><div><div class="num" style="font-size:13px">' + esc(x.nomor) + '</div>' +
+        '<div class="m">@' + esc(x.oleh) + (x.waktu ? ' · ' + esc(x.waktu) : '') +
+        (x.catatan ? ' · ' + esc(x.catatan) : '') + '</div></div>' +
+        '<div style="text-align:right;white-space:nowrap">' +
+        '<button class="mini" onclick="rekanEdit(\'' + esc(x.nomor) + '\')">改备注</button> ' +
+        (mine ? '<button class="mini danger" onclick="rekanToggle(\'' + esc(x.nomor) + '\',0)">取消</button>'
+              : '<span style="color:#9CA3AF;font-size:11px">仅标记人可取消</span>') +
+        '</div></div>';
+      h += '<div id="rekan_edit_' + esc(x.nomor) + '" style="display:none;margin:0 0 9px 0">' +
+        '<input id="rekan_note_' + esc(x.nomor) + '" value="' + esc(x.catatan) + '" ' +
+        'placeholder="写新备注（留空保留原备注）" ' +
+        'style="width:70%;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px"> ' +
+        '<button class="mini" onclick="rekanSave(\'' + esc(x.nomor) + '\')">保存</button></div>';
+    });
+    h += '</div></div>';
+    box.innerHTML = h;
+  });
 }
 
 /* ---------- 只查 ---------- */
@@ -471,7 +585,7 @@ function doRegister(){
   btn.disabled = true;
   $('results').innerHTML = '<div class="loading">提交中…</div>';
 
-  api('register', { nomor: list.join(','), kanal: KANAL }).then(function(r){
+  api('register', { nomor: list.join(','), kanal: KANAL, rekan: $('rekanChk').checked ? '1' : '' }).then(function(r){
     btn.disabled = false;
     if (!r || !r.ok) { fail((r && r.pesan) || '提交失败'); return; }
 
