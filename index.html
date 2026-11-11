@@ -33,8 +33,10 @@
   section{display:none;padding:22px 28px}
   section.on{display:block}
 
-  /* 桌面：左表单 + 右结果 */
-  .reg-grid{display:grid;grid-template-columns:400px minmax(0,1fr);gap:18px;align-items:start}
+  /* 桌面：没有查询结果时表单占满整行；有结果时才分成左右两列
+     （原来固定 400px + 1fr，结果区空着也占一列，表单被挤成窄条） */
+  .reg-grid{display:grid;grid-template-columns:1fr;gap:18px;align-items:start}
+  .reg-grid:has(#results > *){grid-template-columns:440px minmax(0,1fr)}
   .reg-form{position:sticky;top:58px}
   #results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-content:start}
   #results .panel{grid-column:1/-1}
@@ -154,7 +156,7 @@
     nav{padding:0 12px}
     nav button{flex:1;padding:13px 0}
     section{padding:16px 14px}
-    .reg-grid{grid-template-columns:1fr}
+    .reg-grid,.reg-grid:has(#results > *){grid-template-columns:1fr}
     .reg-form{position:static}
     #results{grid-template-columns:1fr}
     #dash{grid-template-columns:1fr}
